@@ -146,7 +146,7 @@ void collect(current: (Statement) stmt, Collector c) {
     case Expression e: collect(e, c);
     case Variables vs: collect(vs, c);
     case Range r: collect(r, c);
-    case Iterator it: collect(it, c);
+    case Iterator ite: collect(ite, c);
     case Loop lp: collect(lp, c);
     case Invocation inv: collect(inv, c);
     case Body b: collect(b, c);
@@ -160,9 +160,9 @@ void collect(current: (Range) `<Assignment? _> from <Principal lo> to <Principal
 }
 
 // ==================== Iterator ====================
-void collect(current: (Iterator) it, Collector c) {
+void collect(current: (Iterator) ite, Collector c) {
   c.enterScope(current);
-  for (/(Variables) vs := it) {
+  for (/(Variables) vs := ite) {
     collect(vs, c);
   }
   c.leaveScope(current);

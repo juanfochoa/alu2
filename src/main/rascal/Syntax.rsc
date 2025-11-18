@@ -86,7 +86,7 @@ syntax Iterator = Assignment "iterator" "(" Variables ")" "yielding" "(" Variabl
 syntax Loop = "for" Identifier Range "do" Body "end";
 
 // ---------- Pattern ----------
-syntax PatternBody = Expression "->" Expression;
+syntax PatternBody = Expression "-\>" Expression;
 
 // ---------- Expression (con precedencia) ----------
 syntax Expression

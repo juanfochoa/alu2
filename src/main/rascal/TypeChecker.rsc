@@ -5,7 +5,6 @@ import ParseTree;
 import Collect;
 import IO;
 
-// Import correcto para TypePal
 extend analysis::typepal::TypePal;
 
 TypePalConfig cfg() = tconfig(
@@ -15,8 +14,7 @@ TypePalConfig cfg() = tconfig(
 
 public TModel typeCheckTree(Tree pt) {
   if (pt has top) pt = pt.top;
-  TypePalConfig config = cfg();
-  c = newCollector("collectAndSolve", pt, config);
+  c = newCollector("alu", pt, cfg());
   collect(pt, c);
   return newSolver(pt, c.run()).run();
 }
@@ -27,7 +25,7 @@ public void typeCheckFile(loc file) {
     str src = readFile(file);
     
     println("Parsing...");
-    Tree pt = parse(#start[Program], src, file);
+    start[Module] pt = parse(#start[Module], src, file);
     
     println("Type checking...");
     TModel tm = typeCheckTree(pt);
@@ -54,8 +52,7 @@ public void typeCheckFile(loc file) {
   }
 }
 
-// Para usar desde el terminal de Rascal:
-// typeCheckFile(|file:///C:/Users/jfoch/PLE/alu2/instance/prueba.alu|);
+// Para usar desde el terminal de Rascal
 public void checkMainFile() {
   typeCheckFile(|file:///C:/Users/jfoch/PLE/alu2/instance/prueba.alu|);
 }

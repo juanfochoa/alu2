@@ -2,18 +2,16 @@ data Person with
   name : String,
   age : Int,
   active : Bool
-end
+end Person
 
-function main()
-do
-  x : Int = 10
-  y : Int = 20
+function main do
+  x = 10
+  y = 20
   z = x + y
   z
-end
+end main
 
-function calculate(a, b)
-do
-  result = a * b + 5
+function calculate(a, b) do
+  result = a + b
   result
-end
+end calculate
