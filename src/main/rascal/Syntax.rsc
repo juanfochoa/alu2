@@ -2,12 +2,12 @@ module Syntax
 
 // ---------- Layout ----------
 layout Layout = WhitespaceAndComment* !>> [\ \t\n\r];
-lexical WhitespaceAndComment = [\ \t\n\r];
+lexical WhitespaceAndComment = [\ \t\n\r] | "//" ![\n]*;
 
 // ---------- Tokens ----------
-lexical Identifier = [a-z]+ !>> [a-z] \ Reserved;
+lexical Identifier = [a-z] [a-z0-9\-]* !>> [a-z0-9\-] \ Reserved;
 lexical IntLiteral = [0-9]+ !>> [0-9];
-lexical FloatLiteral = IntLiteral "." IntLiteral;
+lexical FloatLiteral = [0-9]+ "." [0-9]+;
 lexical CharLiteral = [a-z];
 
 keyword Reserved = 
@@ -18,17 +18,14 @@ keyword Reserved =
 | "Int" | "Bool" | "Char" | "String"
 ;
 
-// ---------- Tipos (para Project 3) ----------
+// ---------- Tipos ----------
 syntax TypeName
-  = "Int"
-  | "Bool"
-  | "Char"
-  | "String"
-  | Identifier
-  ;
+  = "Int" | "Bool" | "Char" | "String" | Identifier;
 
-// ---------- Start ----------
-start syntax Module = Variables? (Function | Data)*;
+// ---------- START ----------
+start syntax Module = Variables? ModuleItem*;
+
+syntax ModuleItem = Function | Data;
 
 // ---------- Variables ----------
 syntax Variables = Identifier ("," Identifier)*;
@@ -45,29 +42,23 @@ syntax Data
   | Assignment? "data" "with" Variables DataBody "end" Identifier
   ;
 
-// TypedVariables para Project 3
 syntax TypedVariables = TypedVariable ("," TypedVariable)*;
-syntax TypedVariable 
-  = Identifier ":" TypeName
-  | Identifier
-  ;
+syntax TypedVariable = Identifier ":" TypeName | Identifier;
 
-syntax DataBody 
-  = Constructor
-  | Function
-  ;
+syntax DataBody = DataBodyItem*;
+syntax DataBodyItem = Constructor | Function;
 
 syntax Constructor = Identifier "=" "struct" "(" Variables ")";
 
 // ---------- Assignment ----------
 syntax Assignment = Identifier "=";
 
-// ---------- Body / Statements ----------
+// ---------- Body ----------
 syntax Body = Statement*;
 
 syntax Statement
   = Expression
-  | Variables
+  | Variables  
   | Range
   | Iterator
   | Loop
@@ -86,33 +77,28 @@ syntax Iterator = Assignment "iterator" "(" Variables ")" "yielding" "(" Variabl
 syntax Loop = "for" Identifier Range "do" Body "end";
 
 // ---------- Pattern ----------
-syntax PatternBody = Expression "-\>" Expression;
+syntax PatternBody = PatternCase+;
+syntax PatternCase = Expression "-\>" Expression;
 
-// ---------- Expression (con precedencia) ----------
+// ---------- Expression ----------
 syntax Expression
   = Principal
   | Invocation
   | bracket "(" Expression ")"
   | "[" Expression "]"
-  > "-" Expression
+  > right "-" Expression
   > left Expression "**" Expression
-  > left (
-      Expression "*" Expression
-    | Expression "/" Expression
-    | Expression "%" Expression
-    )
-  > left (
-      Expression "+" Expression
-    | Expression "-" Expression
-    )
-  > non-assoc (
-      Expression "\<" Expression
-    | Expression "\>" Expression
-    | Expression "\<=" Expression
-    | Expression "\>=" Expression
-    | Expression "\<\>" Expression
-    | Expression "=" Expression
-    )
+  > left Expression "*" Expression
+  | left Expression "/" Expression
+  | left Expression "%" Expression
+  > left Expression "+" Expression
+  | left Expression "-" Expression
+  > non-assoc Expression "\<" Expression
+  | non-assoc Expression "\>" Expression
+  | non-assoc Expression "\<=" Expression
+  | non-assoc Expression "\>=" Expression
+  | non-assoc Expression "\<\>" Expression
+  | non-assoc Expression "=" Expression
   > left Expression "and" Expression
   > left Expression "or" Expression
   > right Expression "-\>" Expression
@@ -121,16 +107,15 @@ syntax Expression
 
 // ---------- Invocation ----------
 syntax Invocation
-  = Identifier "$" "(" Variables ")"
-  | Identifier "." Identifier "(" Variables ")"
+  = Identifier "$" "(" Variables? ")"
+  | Identifier "." Identifier "(" Variables? ")"
   ;
 
 // ---------- Principal ----------
 syntax Principal
-  = "true"
-  | "false"
+  = "true" | "false"
   | CharLiteral
-  | FloatLiteral
+  | FloatLiteral  
   | IntLiteral
   | Identifier
   ;
