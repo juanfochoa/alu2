@@ -5,54 +5,35 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>edu.uniandes</groupId>
-  <artifactId>proyecto-1-ple</artifactId>
+  <artifactId>alu2</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>proyecto-1-ple</name>
+  <name>alu2</name>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
-    <!-- Ajusta la versión de Rascal aquí si la necesitas -->
-    <!-- <rascal.version>0.22.0</rascal.version> -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+
   <repositories>
     <repository>
-      <id>oss-sonatype-releases</id>
-      <name>OSS Sonatype Releases</name>
-      <url>https://oss.sonatype.org/content/repositories/releases/</url>
-    </repository>
-    <repository>
-      <id>oss-sonatype-snapshots</id>
-      <name>OSS Sonatype Snapshots</name>
-      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-    <repository>
-      <id>usethesource-releases</id>
-      <name>usethesource releases</name>
+      <id>usethesource</id>
       <url>https://releases.usethesource.io/maven/</url>
     </repository>
   </repositories>
 
   <dependencies>
-    
     <dependency>
-    <groupId>org.rascalmpl</groupId>
-    <artifactId>rascal-lsp</artifactId>
-    <version>2.21.0-2</version> <!-- ajusta la versión a la que uses -->
+      <groupId>org.rascalmpl</groupId>
+      <artifactId>rascal</artifactId>
+      <version>0.40.17</version>
     </dependency>
     <dependency>
-    <groupId>org.rascalmpl</groupId>
-    <artifactId>typepal</artifactId>
-    <version>0.14.8</version>
-  </dependency>
-    
+      <groupId>org.rascalmpl</groupId>
+      <artifactId>typepal</artifactId>
+      <version>0.13.3</version>
+    </dependency>
   </dependencies>
 </project>

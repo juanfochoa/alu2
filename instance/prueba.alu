@@ -1,4 +1,19 @@
-function main() 
+data Person with
+  name : String,
+  age : Int,
+  active : Bool
+end
+
+function main()
 do
-1+2+3
+  x : Int = 10
+  y : Int = 20
+  z = x + y
+  z
+end
+
+function calculate(a, b)
+do
+  result = a * b + 5
+  result
 end

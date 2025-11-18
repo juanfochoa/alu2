@@ -3,30 +3,59 @@ module TypeChecker
 import Syntax;
 import ParseTree;
 import Collect;
-import analysis::typepal::TypePal;
 import IO;
 
+// Import correcto para TypePal
+extend analysis::typepal::TypePal;
+
 TypePalConfig cfg() = tconfig(
-  verbose = false
+  verbose = true,
+  logTModel = true
 );
+
+public TModel typeCheckTree(Tree pt) {
+  if (pt has top) pt = pt.top;
+  TypePalConfig config = cfg();
+  c = newCollector("collectAndSolve", pt, config);
+  collect(pt, c);
+  return newSolver(pt, c.run()).run();
+}
 
 public void typeCheckFile(loc file) {
   try {
-    str  src = readFile(file);
-    Tree pt  = parse(#Program, src, file);     // devuelve start[Program]
-
-    TModel tm = collectAndSolve(pt, config = cfg());
-
+    println("Reading file: <file>");
+    str src = readFile(file);
+    
+    println("Parsing...");
+    Tree pt = parse(#start[Program], src, file);
+    
+    println("Type checking...");
+    TModel tm = typeCheckTree(pt);
+    
+    println("\n=== TYPE CHECKING RESULTS ===");
     if (size(tm.messages) == 0) {
-      println(" No type errors.");
+      println("✓ No type errors found!");
     } else {
-      println(" Type errors:");
+      println("✗ Type errors found:");
       for (msg <- tm.messages) {
-        println("  <msg>");
+        println("  - <msg>");
       }
     }
-  }
-  catch e: {
+    
+    println("\n=== DEFINITIONS ===");
+    for (def <- tm.definitions) {
+      println("  <def>");
+    }
+    
+  } catch ParseError(loc l): {
+    println("Parse error at <l>");
+  } catch e: {
     println("Error: <e>");
   }
+}
+
+// Para usar desde el terminal de Rascal:
+// typeCheckFile(|file:///C:/Users/jfoch/PLE/alu2/instance/prueba.alu|);
+public void checkMainFile() {
+  typeCheckFile(|file:///C:/Users/jfoch/PLE/alu2/instance/prueba.alu|);
 }
