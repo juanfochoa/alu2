@@ -2,94 +2,94 @@ module Syntax
 
 // ---------- Layout ----------
 layout Layout = WhitespaceAndComment* !>> [\ \t\n\r];
-lexical WhitespaceAndComment = [\ \t\n\r] | "//" ![\n]*;
+lexical WhitespaceAndComment 
+  = [\ \t\n\r]
+  | @category="Comment" "//" ![\n]* [\n]?
+  ;
 
 // ---------- Tokens ----------
 lexical Identifier = [a-z] [a-z0-9\-]* !>> [a-z0-9\-] \ Reserved;
 lexical IntLiteral = [0-9]+ !>> [0-9];
-lexical FloatLiteral = [0-9]+ "." [0-9]+;
-lexical CharLiteral = [a-z];
+lexical FloatLiteral = [0-9]+ "." [0-9]+ !>> [0-9];
+lexical CharLiteral = "\'" [a-z] "\'";
 
 keyword Reserved = 
   "cond" | "do" | "data" | "end" | "for" | "from" | "then"
-| "function" | "else" | "if" | "in" | "iterator" | "sequence" | "struct"
+| "function" | "else" | "elseif" | "if" | "in" | "iterator" | "sequence" | "struct"
 | "to" | "tuple" | "type" | "with" | "yielding" | "and" | "or" | "neg"
 | "true" | "false"
 | "Int" | "Bool" | "Char" | "String"
 ;
 
-// ---------- Tipos ----------
+// ---------- Tipos (Project 3) ----------
 syntax TypeName
   = "Int" | "Bool" | "Char" | "String" | Identifier;
 
-// ---------- START ----------
-start syntax Module = Variables? ModuleItem*;
+// ---------- START: Module ----------
+start syntax Module = ModuleItem*;
 
-syntax ModuleItem = Function | Data;
+syntax ModuleItem 
+  = Function
+  | Data
+  | Variables
+  ;
 
-// ---------- Variables ----------
-syntax Variables = Identifier ("," Identifier)*;
+// ---------- Variables (declaración global) ----------
+syntax Variables = {Identifier ","}+;
 
 // ---------- Function ----------
 syntax Function 
-  = Assignment? "function" "(" Variables ")" "do" Body "end" Identifier
-  | Assignment? "function" "do" Body "end" Identifier
+  = Identifier "=" "function" "(" {Identifier ","}* ")" "do" Body "end" Identifier
+  | Identifier "=" "function" "do" Body "end" Identifier
+  | "function" "(" {Identifier ","}* ")" "do" Body "end" Identifier
+  | "function" "do" Body "end" Identifier
   ;
 
 // ---------- Data ----------
 syntax Data 
-  = Assignment? "data" "with" TypedVariables DataBody "end" Identifier
-  | Assignment? "data" "with" Variables DataBody "end" Identifier
+  = Identifier "=" "data" "with" {Identifier ","}+ DataBody "end" Identifier
+  | "data" "with" {Identifier ","}+ DataBody "end" Identifier
   ;
 
-syntax TypedVariables = TypedVariable ("," TypedVariable)*;
-syntax TypedVariable = Identifier ":" TypeName | Identifier;
-
 syntax DataBody = DataBodyItem*;
-syntax DataBodyItem = Constructor | Function;
 
-syntax Constructor = Identifier "=" "struct" "(" Variables ")";
+syntax DataBodyItem 
+  = Constructor
+  | Function
+  ;
 
-// ---------- Assignment ----------
-syntax Assignment = Identifier "=";
+syntax Constructor = Identifier "=" "struct" "(" {Identifier ","}+ ")";
 
-// ---------- Body ----------
+// ---------- Body / Statements ----------
 syntax Body = Statement*;
 
 syntax Statement
-  = Expression
-  | Variables  
-  | Range
-  | Iterator
-  | Loop
-  | "if" Expression "then" Body "else" Body "end"
-  | "cond" Expression "do" PatternBody "end"
-  | Invocation
+  = Identifier "=" Expression                    // Assignment
+  | "if" Expression "then" Body ElseIfClause* "else" Body "end"
+  | "cond" Identifier "do" {PatternCase ","}+ "end"
+  | "for" Identifier "from" Range "do" Body "end"
+  | "for" Identifier "in" Expression "do" Body "end"
+  | Expression                                   // Expression statement
   ;
 
+syntax ElseIfClause = "elseif" Expression "then" Body;
+
 // ---------- Range ----------
-syntax Range = Assignment? "from" Principal "to" Principal;
-
-// ---------- Iterator ----------
-syntax Iterator = Assignment "iterator" "(" Variables ")" "yielding" "(" Variables ")";
-
-// ---------- Loop ----------
-syntax Loop = "for" Identifier Range "do" Body "end";
+syntax Range = Expression "to" Expression;
 
 // ---------- Pattern ----------
-syntax PatternBody = PatternCase+;
 syntax PatternCase = Expression "-\>" Expression;
 
-// ---------- Expression ----------
+// ---------- Expression (precedencia según proyecto) ----------
 syntax Expression
   = Principal
   | Invocation
   | bracket "(" Expression ")"
-  | "[" Expression "]"
+  | bracket "[" Expression "]"
   > right "-" Expression
   > left Expression "**" Expression
   > left Expression "*" Expression
-  | left Expression "/" Expression
+  | left Expression "/" Expression  
   | left Expression "%" Expression
   > left Expression "+" Expression
   | left Expression "-" Expression
@@ -107,13 +107,15 @@ syntax Expression
 
 // ---------- Invocation ----------
 syntax Invocation
-  = Identifier "$" "(" Variables? ")"
-  | Identifier "." Identifier "(" Variables? ")"
+  = Identifier "$" "(" {Expression ","}* ")"
+  | Identifier "." Identifier "(" {Expression ","}* ")"
+  | Identifier "(" {Expression ","}* ")"
   ;
 
 // ---------- Principal ----------
 syntax Principal
-  = "true" | "false"
+  = "true" 
+  | "false"
   | CharLiteral
   | FloatLiteral  
   | IntLiteral

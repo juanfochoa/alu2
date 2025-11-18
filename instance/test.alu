@@ -1,0 +1,18 @@
+sqrt = function (x, g) do
+  if good-enough(x, g)
+  then g
+  else sqrt(x, improve(x, g))
+  end
+end sqrt
+
+good-enough = function (x, g) do
+  abs(x - g*g) < 0.001
+end good-enough
+
+improve = function (x, g) do
+  average(g, x/g)
+end improve
+
+average = function (x, y) do
+  (x + y) / 2.0
+end average
