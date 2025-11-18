@@ -1,17 +1,35 @@
-data Person with
-  name : String,
-  age : Int,
-  active : Bool
-end Person
+complex = data with create , add , get_theta , equal // data abstraction definition
 
-function main do
-  x = 10
-  y = 20
-  z = x + y
-  z
-end main
+  rep = struct ( real , img )
 
-function calculate(a, b) do
-  result = a + b
-  result
-end calculate
+  create = function (x , y) do
+    rep$ ( real :x , img :y )
+  end create
+
+  add = function ( cmplx1 , cmplx2 ) do
+    rep$ ( real : cmplx1.real + cmpl2.real , img : cmplx1.img + cmplx2.img )
+  end add
+
+  get - theta = function ( cmplx ) do
+    arctan2 ( cmplx . real , cmplx . img )
+  end get - theta
+end complex
+
+sqrt = function (x , g) do // function definition
+  if good - enough (x , g )
+  then g
+  else sqrt (x , improve (x , g))
+  end
+end sqrt
+
+good - enough = function (x , g ) do
+  abs (x - g*g ) < 0.001
+end good - enough
+
+improve = function (x , g ) do
+  average (g , x /g )
+end improve
+
+average = function (x , y ) do
+  (x +y ) /2.0
+end average
