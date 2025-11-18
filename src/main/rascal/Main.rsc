@@ -8,6 +8,7 @@ import Generator1;
 public void main(list[str] args=[]) {
   str path =
     (args == [])
+      // cambiar por la ruta de archivo
       ? "C:/Users/jfoch/PLE/alu2/instance/prueba.alu"
       : args[0];
 
