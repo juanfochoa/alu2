@@ -1,6 +1,6 @@
 module AST
 
-// ==================== TIPOS (NUEVO) ====================
+// ==================== TIPOS ====================
 data Type
   = intType()
   | boolType()
@@ -10,7 +10,7 @@ data Type
   | unknownType()
   ;
 
-// Programa y módulos (SIN CAMBIOS)
+// Programa y módulos
 data Program = program(list[Module] modules);
 
 data Module
@@ -18,7 +18,7 @@ data Module
   | dataMod(DataDecl d)
   ;
 
-// Declaraciones (SIN CAMBIOS - mantener compatibilidad)
+// Declaraciones 
 data FunctionDecl = function(
   str name,
   list[str] params,
@@ -30,7 +30,7 @@ data DataDecl = dataDecl(
   list[str] fields
 );
 
-// Sentencias (SIN CAMBIOS)
+// Sentencias 
 data Statement
   = assign(list[str] lhs, Expression rhs)
   | ifStmt(
@@ -51,14 +51,14 @@ data Statement
   | exprStmt(Expression e)
   ;
 
-// Rango y condición (SIN CAMBIOS)
+// Rango y condición
 data Range = range(Expression lo, Expression hi);
 
 data Operator = lt() | gt() | le() | ge() | ne() | eq() | and() | or();
 
 data Condition = condition(Expression left, Operator op, Expression right);
 
-// Expresiones (SIN CAMBIOS)
+// Expresiones
 data Expression
   = add(Expression left, Expression right)
   | sub(Expression left, Expression right)
