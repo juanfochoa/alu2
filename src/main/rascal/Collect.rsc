@@ -3,8 +3,10 @@ module Collect
 import Syntax;
 import ParseTree;
 import IO;
+import Set;
+import String;
+import List;
 
-// Imports correctos para TypePal
 extend analysis::typepal::TypePal;
 
 // Roles para identificadores
@@ -12,228 +14,211 @@ data IdRole = variableId() | functionId() | dataTypeId() | fieldId();
 
 private str t2s(Tree t) = "<t>";
 
-// ==================== MAPEO DE TIPOS ====================
-AType mapType(TypeName tn) {
-  str s = t2s(tn);
-  switch (s) {
-    case "Int":    return tyInt();
-    case "Bool":   return tyBool();
-    case "Char":   return tyChar();
+// Mapeo de tipos
+AType mapType(str typeName) {
+  switch (typeName) {
+    case "Int": return tyInt();
+    case "Bool": return tyBool();
+    case "Char": return tyChar();
     case "String": return tyString();
-    default:       return tyVoid(); // tipo de usuario (para data types)
+    default: return tyVoid();
   }
 }
 
-// Punto de entrada
-void collect(current: start[Program] p, Collector c) = collect(p.top, c);
-
-/* =========================
- * Programa & Modulo
- * ========================= */
-void collect(current: (Program) `<Module* ms>`, Collector c) {
+// ==================== Module ====================
+void collect(current: start[Module] m, Collector c) {
   c.enterScope(current);
-  for (Module m <- ms) collect(m, c);
+  collect(m.top, c);
   c.leaveScope(current);
 }
 
-void collect(current: (Module) `<FunctionModule f>`, Collector c) = collect(f, c);
-void collect(current: (Module) `<DataModule d>`, Collector c) = collect(d, c);
-
-/* =========================
- * Declaraciones de Data con tipos
- * ========================= */
-void collect(current: (DataModule)
-  `data <Identifier id> with <TypedIdentifierList til> end`, Collector c) {
-  c.define(t2s(id), dataTypeId(), id, defType(tyVoid()));
-  c.enterScope(current);
-  // Recolectar campos con tipos
-  visit(til) {
-    case (TypedIdentifier) `<Identifier fid> : <TypeName tn>`:
-      c.define(t2s(fid), fieldId(), fid, defType(mapType(tn)));
-    case (TypedIdentifier) `<Identifier fid>`:
-      c.define(t2s(fid), fieldId(), fid, defType(tyVoid()));
-  }
-  c.leaveScope(current);
+void collect(current: (Module) `<Variables? vs> <Function* fs> <Data* ds>`, Collector c) {
+  if (vs is Variables) collect(vs, c);
+  for (f <- fs) collect(f, c);
+  for (d <- ds) collect(d, c);
 }
 
-// Compatibilidad sin tipos
-void collect(current: (DataModule)
-  `data <Identifier id> with <IdentifierList il> end`, Collector c) {
-  c.define(t2s(id), dataTypeId(), id, defType(tyVoid()));
-  c.enterScope(current);
-  visit(il) {
-    case (Identifier) i:
-      c.define(t2s(i), fieldId(), i, defType(tyVoid()));
-  }
-  c.leaveScope(current);
-}
-
-/* =========================
- * Funciones
- * ========================= */
-void collect(current: (FunctionModule)
-  `function <Identifier id> ( ) do <Statements ss> end`, Collector c) {
-  c.define(t2s(id), functionId(), id, defType(tyVoid()));
-  c.enterScope(current);
-  collect(ss, c);
-  c.leaveScope(current);
-}
-
-void collect(current: (FunctionModule)
-  `function <Identifier id> ( <Parameters ps> ) do <Statements ss> end`, Collector c) {
-  c.define(t2s(id), functionId(), id, defType(tyVoid()));
-  c.enterScope(current);
-  visit(ps) {
-    case (Identifier) p:
-      c.define(t2s(p), variableId(), p, defType(tyVoid()));
-  }
-  collect(ss, c);
-  c.leaveScope(current);
-}
-
-/* =========================
- * Statements / Bloques
- * ========================= */
-void collect(current: (Statements) `<Statement+ ss>`, Collector c) {
-  for (Statement s <- ss) collect(s, c);
-}
-
-void collect(current: (Statement) `<ControlStatement cs>`, Collector c) = collect(cs, c);
-
-void collect(current: (Statement) `<Expression e>`, Collector c) = collect(e, c);
-
-// Asignación con definición de variables
-void collect(current: (Expression) `<VariableList vs> = <Expression e>`, Collector c) {
-  collect(e, c);
-  visit(vs) {
-    case (Identifier) v:
-      c.define(t2s(v), variableId(), v, defType(tyVoid()));
+// ==================== Variables ====================
+void collect(current: (Variables) vars, Collector c) {
+  for (/Identifier id := vars) {
+    c.define(t2s(id), variableId(), id, defType(tyVoid()));
   }
 }
 
-/* =========================
- * Control: if / elseif / else 
- * ========================= */
-void collect(current: (IfExpression) iexp, Collector c) {
-  visit(iexp) {
-    case (Condition) cnd: collect(cnd, c);
-    case (Statements) body: {
-      c.enterScope(body);
-      collect(body, c);
-      c.leaveScope(body);
+// ==================== Data ====================
+void collect(current: (Data) d, Collector c) {
+  str dataName = "";
+  
+  // Extraer nombre del data (último identificador)
+  list[Identifier] ids = [id | /Identifier id := d];
+  if (size(ids) > 0) {
+    dataName = t2s(ids[-1]);
+    c.define(dataName, dataTypeId(), ids[-1], defType(tyVoid()));
+  }
+  
+  c.enterScope(current);
+  
+  // Recolectar campos con tipos (TypedVariables)
+  for (/(TypedVariables) tvs := d) {
+    for (/(TypedVariable) tv := tvs) {
+      str fieldName = "";
+      AType fieldType = tyVoid();
+      
+      for (/Identifier fid := tv) {
+        fieldName = t2s(fid);
+        break;
+      }
+      
+      for (/TypeName tn := tv) {
+        fieldType = mapType(t2s(tn));
+      }
+      
+      if (fieldName != "") {
+        c.define(fieldName, fieldId(), tv@\loc, defType(fieldType));
+      }
     }
   }
+  
+  // Si no hay TypedVariables, buscar Variables simple
+  for (/(Variables) vs := d, /(TypedVariables) _ !:= d) {
+    for (/Identifier fid := vs) {
+      c.define(t2s(fid), fieldId(), fid, defType(tyVoid()));
+    }
+  }
+  
+  // Recolectar constructores o funciones dentro
+  for (/(DataBody) db := d) {
+    collect(db, c);
+  }
+  
+  c.leaveScope(current);
 }
 
-/* =========================
- * Control: for
- * ========================= */
-void collect(current: (ForExpression)
-  `for <Identifier v> from <Range r> do <Statements b> end`, Collector c) {
+void collect(current: (DataBody) db, Collector c) {
+  for (/(Constructor) cons := db) collect(cons, c);
+  for (/(Function) func := db) collect(func, c);
+}
+
+void collect(current: (Constructor) cons, Collector c) {
+  // Los constructores definen funciones
+  for (/Identifier id := cons, "struct" notin t2s(id)) {
+    c.define(t2s(id), functionId(), id, defType(tyVoid()));
+    break;
+  }
+}
+
+// ==================== Function ====================
+void collect(current: (Function) f, Collector c) {
+  str funcName = "";
+  
+  // Extraer nombre de función (último identificador)
+  list[Identifier] ids = [id | /Identifier id := f];
+  if (size(ids) > 0) {
+    funcName = t2s(ids[-1]);
+    c.define(funcName, functionId(), ids[-1], defType(tyVoid()));
+  }
+  
   c.enterScope(current);
-  c.define(t2s(v), variableId(), v, defType(tyInt()));
+  
+  // Recolectar parámetros
+  for (/(Variables) params := f, /(Body) _ !:= params) {
+    for (/Identifier p := params) {
+      c.define(t2s(p), variableId(), p, defType(tyVoid()));
+    }
+    break;
+  }
+  
+  // Recolectar cuerpo
+  for (/(Body) body := f) {
+    collect(body, c);
+  }
+  
+  c.leaveScope(current);
+}
+
+// ==================== Body / Statements ====================
+void collect(current: (Body) `<Statement* stmts>`, Collector c) {
+  for (stmt <- stmts) collect(stmt, c);
+}
+
+void collect(current: (Statement) stmt, Collector c) {
+  visit(stmt) {
+    case Expression e: collect(e, c);
+    case Variables vs: collect(vs, c);
+    case Range r: collect(r, c);
+    case Iterator it: collect(it, c);
+    case Loop lp: collect(lp, c);
+    case Invocation inv: collect(inv, c);
+    case Body b: collect(b, c);
+  }
+}
+
+// ==================== Range ====================
+void collect(current: (Range) `<Assignment? _> from <Principal lo> to <Principal hi>`, Collector c) {
+  collect(lo, c);
+  collect(hi, c);
+}
+
+// ==================== Iterator ====================
+void collect(current: (Iterator) it, Collector c) {
+  c.enterScope(current);
+  for (/(Variables) vs := it) {
+    collect(vs, c);
+  }
+  c.leaveScope(current);
+}
+
+// ==================== Loop ====================
+void collect(current: (Loop) `for <Identifier i> <Range r> do <Body b> end`, Collector c) {
+  c.enterScope(current);
+  c.define(t2s(i), variableId(), i, defType(tyInt()));
   collect(r, c);
   collect(b, c);
   c.leaveScope(current);
 }
 
-/* =========================
- * Control: cond
- * ========================= */
-void collect(current: (CondExpression) cexp, Collector c) {
-  visit(cexp) {
-    case (Identifier) sel: c.use(sel, {variableId(), functionId()});
-    case (Condition) g: collect(g, c);
-    case (Statements) s: {
-      c.enterScope(s);
-      collect(s, c);
-      c.leaveScope(s);
-    }
+// ==================== Expression ====================
+void collect(current: (Expression) e, Collector c) {
+  visit(e) {
+    case Principal p: collect(p, c);
+    case Invocation inv: collect(inv, c);
   }
 }
 
-/* =========================
- * Rango / Condición
- * ========================= */
-void collect(current: (Range) `<Expression lo> to <Expression hi>`, Collector c) {
-  collect(lo, c);
-  collect(hi, c);
-  c.requireEqual(lo, tyInt(), error(lo, "Range lower bound must be Int"));
-  c.requireEqual(hi, tyInt(), error(hi, "Range upper bound must be Int"));
+// ==================== Invocation ====================
+void collect(current: (Invocation) inv, Collector c) {
+  for (/Identifier id := inv) {
+    c.use(id, {functionId()});
+    break; // Solo el primero es la función
+  }
 }
 
-void collect(current: (Condition) `<Expression a> <Operator _> <Expression b>`, Collector c) {
-  collect(a, c);
-  collect(b, c);
+// ==================== Principal ====================
+void collect(current: (Principal) `<Identifier x>`, Collector c) {
+  c.use(x, {variableId(), functionId()});
+}
+
+void collect(current: (Principal) `<IntLiteral _>`, Collector c) {
+  c.fact(current, tyInt());
+}
+
+void collect(current: (Principal) `<FloatLiteral _>`, Collector c) {
+  c.fact(current, tyInt()); // o podrías crear tyFloat()
+}
+
+void collect(current: (Principal) `<CharLiteral _>`, Collector c) {
+  c.fact(current, tyChar());
+}
+
+void collect(current: (Principal) `true`, Collector c) {
   c.fact(current, tyBool());
 }
 
-/* =========================
- * Expresiones
- * ========================= */
-void collect(current: (Expression) `<Add a>`, Collector c) = collect(a, c);
-void collect(current: (Add) `<Mul m>`, Collector c) = collect(m, c);
-void collect(current: (Mul) `<Primary p>`, Collector c) = collect(p, c);
-
-void collect(current: (Add) `<Add l> + <Add r>`, Collector c) {
-  collect(l, c); collect(r, c);
-  c.calculate("add", current, [l, r],
-    AType(Solver s) {
-      s.requireEqual(l, tyInt(), error(l, "Left operand must be Int"));
-      s.requireEqual(r, tyInt(), error(r, "Right operand must be Int"));
-      return tyInt();
-    });
+void collect(current: (Principal) `false`, Collector c) {
+  c.fact(current, tyBool());
 }
 
-void collect(current: (Add) `<Add l> - <Add r>`, Collector c) {
-  collect(l, c); collect(r, c);
-  c.calculate("sub", current, [l, r],
-    AType(Solver s) {
-      s.requireEqual(l, tyInt(), error(l, "Left operand must be Int"));
-      s.requireEqual(r, tyInt(), error(r, "Right operand must be Int"));
-      return tyInt();
-    });
+// Catch-all para otros nodos
+default void collect(Tree t, Collector c) {
+  // No hacer nada para otros nodos
 }
-
-void collect(current: (Mul) `<Mul l> * <Mul r>`, Collector c) {
-  collect(l, c); collect(r, c);
-  c.calculate("mul", current, [l, r],
-    AType(Solver s) {
-      s.requireEqual(l, tyInt(), error(l, "Left operand must be Int"));
-      s.requireEqual(r, tyInt(), error(r, "Right operand must be Int"));
-      return tyInt();
-    });
-}
-
-void collect(current: (Mul) `<Mul l> / <Mul r>`, Collector c) {
-  collect(l, c); collect(r, c);
-  c.calculate("div", current, [l, r],
-    AType(Solver s) {
-      s.requireEqual(l, tyInt(), error(l, "Left operand must be Int"));
-      s.requireEqual(r, tyInt(), error(r, "Right operand must be Int"));
-      return tyInt();
-    });
-}
-
-/* =========================
- * Llamadas y primarios
- * ========================= */
-void collect(current: (Primary) `<FunctionCall fc>`, Collector c) = collect(fc, c);
-void collect(current: (Primary) `<Identifier x>`, Collector c) = 
-  c.use(x, {variableId(), functionId()});
-void collect(current: (Primary) `<Value v>`, Collector c) = collect(v, c);
-
-void collect(current: (FunctionCall) fc, Collector c) {
-  visit(fc) {
-    case (Identifier) f: c.use(f, {functionId()});
-    case (Expression) e: collect(e, c);
-  }
-}
-
-/* =========================
- * Valores literales
- * ========================= */
-void collect(current: (Value) `<Number _>`, Collector c) = c.fact(current, tyInt());
-void collect(current: (Value) `<Boolean _>`, Collector c) = c.fact(current, tyBool());
-void collect(current: (Value) `<Char _>`, Collector c) = c.fact(current, tyChar());
-void collect(current: (Value) `<String _>`, Collector c) = c.fact(current, tyString());

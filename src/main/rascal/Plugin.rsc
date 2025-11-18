@@ -5,31 +5,23 @@ import ParseTree;
 import util::Reflective;
 import util::IDEServices;
 import util::LanguageServer;
-import Relation;
 import Syntax;
 import Collect;
 
-// Import correcto para TypePal
 extend analysis::typepal::TypePal;
 
 PathConfig pcfg = getProjectPathConfig(|project://alu2|);
 
 Language aluLang = language(pcfg, "ALU", "alu", "Plugin", "contribs");
 
-TypePalConfig cfg() = tconfig(
-  verbose = false,
-  logTModel = false
-);
-
 TModel TModelFromTree(Tree pt) {
   if (pt has top) pt = pt.top;
-  TypePalConfig config = cfg();
-  c = newCollector("collectAndSolve", pt, config);
+  c = newCollector("alu", pt, tconfig(verbose = false));
   collect(pt, c);
   return newSolver(pt, c.run()).run();
 }
 
-Summary aluSummarizer(loc l, start[Program] input) {
+Summary aluSummarizer(loc l, start[Module] input) {
   try {
     tm = TModelFromTree(input);
     defs = getUseDef(tm);
@@ -44,13 +36,13 @@ Summary aluSummarizer(loc l, start[Program] input) {
 }
 
 set[LanguageService] contribs() = {
-  parser(start[Program] (str program, loc src) {
-    return parse(#start[Program], program, src);
+  parser(start[Module] (str program, loc src) {
+    return parse(#start[Module], program, src);
   }),
   summarizer(aluSummarizer)
 };
 
 public void main() { 
   registerLanguage(aluLang); 
-  println("ALU Language registered with TypePal support");
+  println("✓ ALU Language registered with TypePal");
 }

@@ -1,48 +1,24 @@
 module Syntax
 
 // ---------- Layout ----------
-layout LAYOUT = [\ \t]*;
-lexical NL = [\r]?[\n]+;
+layout Layout = WhitespaceAndComment* !>> [\ \t\n\r];
+lexical WhitespaceAndComment = [\ \t\n\r];
 
-// ---------- identificadores y literales ----------
-lexical Identifier = [a-z] [a-zA-Z0-9\-]* ;
-keyword KW =
-  "cond" | "do" | "data" | "elseif" | "end" | "for" | "from" | "then"
+// ---------- Tokens ----------
+lexical Identifier = [a-z]+ !>> [a-z] \ Reserved;
+lexical IntLiteral = [0-9]+ !>> [0-9];
+lexical FloatLiteral = IntLiteral "." IntLiteral;
+lexical CharLiteral = [a-z];
+
+keyword Reserved = 
+  "cond" | "do" | "data" | "end" | "for" | "from" | "then"
 | "function" | "else" | "if" | "in" | "iterator" | "sequence" | "struct"
-| "to" | "tuple" | "type" | "with" | "yielding"
-| "and" | "or"
-| "Int" | "Bool" | "Char" | "String"  // NUEVO: tipos
+| "to" | "tuple" | "type" | "with" | "yielding" | "and" | "or" | "neg"
+| "true" | "false"
+| "Int" | "Bool" | "Char" | "String"
 ;
-lexical Number  = [0-9]+ ("." [0-9]+)?;
-syntax Boolean = "true" | "false";
-lexical Char   = "\'" [a-z] "\'";
-lexical String = "\"" ![\"]* "\"";
 
-// ---------- Símbolos ----------
-lexical STAR    = "*";
-lexical SLASH   = "/";
-lexical MINUS   = "-";
-lexical PLUS    = "+";
-lexical POW     = "**";
-lexical MOD     = "%";
-
-lexical LT      = '\<';
-lexical GT      = '\>';
-lexical LE      = '\<=';
-lexical GE      = '\>=';
-lexical NE      = '\<\>';
-lexical EQ      = "==";
-
-lexical ARROW   = '-\>';
-lexical COLON   = ":";
-lexical DOLLAR  = "$";
-lexical LP      = "(";
-lexical RP      = ")";
-lexical LB      = "[";
-lexical RB      = "]";
-lexical COMMA   = ",";
-
-// ==================== NUEVO: Tipos ====================
+// ---------- Tipos (para Project 3) ----------
 syntax TypeName
   = "Int"
   | "Bool"
@@ -51,105 +27,110 @@ syntax TypeName
   | Identifier
   ;
 
-syntax TypedIdentifier = Identifier (COLON TypeName)?;
-syntax TypedIdentifierList = TypedIdentifier (COMMA TypedIdentifier)*;
+// ---------- Start ----------
+start syntax Module = Variables? (Function | Data)*;
 
-// ---------- Raíz ----------
-start syntax Program = program:Module+;
+// ---------- Variables ----------
+syntax Variables = Identifier ("," Identifier)*;
 
-// ---------- Módulos ----------
-syntax Module
-  = funMod: FunctionModule
-  | dataMod: DataModule
+// ---------- Function ----------
+syntax Function 
+  = Assignment? "function" "(" Variables ")" "do" Body "end" Identifier
+  | Assignment? "function" "do" Body "end" Identifier
   ;
 
-// MODIFICADO: Ahora acepta TypedIdentifierList o IdentifierList
-syntax DataModule 
-  = dataDecl: "data" Identifier "with" NL* TypedIdentifierList NL* "end"
-  | dataDecl: "data" Identifier "with" NL* IdentifierList NL* "end"  // compatibilidad
+// ---------- Data ----------
+syntax Data 
+  = Assignment? "data" "with" TypedVariables DataBody "end" Identifier
+  | Assignment? "data" "with" Variables DataBody "end" Identifier
   ;
 
-// ---------- Funciones ----------
-syntax FunctionModule
-  = function: "function" Identifier LP Parameters? RP
-    NL* "do" NL* Statements NL* "end" NL*
+// TypedVariables para Project 3
+syntax TypedVariables = TypedVariable ("," TypedVariable)*;
+syntax TypedVariable 
+  = Identifier ":" TypeName
+  | Identifier
   ;
 
-// ---------- Bloques / Expresiones ----------
-syntax Parameters = Identifier (COMMA Identifier)* ;
-syntax Statements = Statement (NL Statement)* ;
-
-syntax Primary
-  = Identifier 
-  | FunctionCall
-  | Value
+syntax DataBody 
+  = Constructor
+  | Function
   ;
 
-syntax Mul
-  = left Mul STAR  right Mul
-  > left Mul SLASH right Mul
-  > Primary
-  ;
+syntax Constructor = Identifier "=" "struct" "(" Variables ")";
 
-syntax Add
-  = left Add PLUS  right Add
-  > left Add MINUS right Add
-  > Mul
-  ;
+// ---------- Assignment ----------
+syntax Assignment = Identifier "=";
 
-syntax Expression
-   =  VariableList "=" Expression
-   | Add;         
+// ---------- Body / Statements ----------
+syntax Body = Statement*;
 
 syntax Statement
-  = ControlStatement
-  | Expression
+  = Expression
+  | Variables
+  | Range
+  | Iterator
+  | Loop
+  | "if" Expression "then" Body "else" Body "end"
+  | "cond" Expression "do" PatternBody "end"
+  | Invocation
   ;
 
-// --- Control ---
-syntax ControlStatement = IfExpression | CondExpression | ForExpression ;
+// ---------- Range ----------
+syntax Range = Assignment? "from" Principal "to" Principal;
 
-syntax IfExpression
-  = "if" Condition "then" NL* Statements
-    NL* ( "elseif" Condition "then" NL* Statements )*
-    "else" NL* Statements NL*
-    "end"
+// ---------- Iterator ----------
+syntax Iterator = Assignment "iterator" "(" Variables ")" "yielding" "(" Variables ")";
+
+// ---------- Loop ----------
+syntax Loop = "for" Identifier Range "do" Body "end";
+
+// ---------- Pattern ----------
+syntax PatternBody = Expression "->" Expression;
+
+// ---------- Expression (con precedencia) ----------
+syntax Expression
+  = Principal
+  | Invocation
+  | bracket "(" Expression ")"
+  | "[" Expression "]"
+  > "-" Expression
+  > left Expression "**" Expression
+  > left (
+      Expression "*" Expression
+    | Expression "/" Expression
+    | Expression "%" Expression
+    )
+  > left (
+      Expression "+" Expression
+    | Expression "-" Expression
+    )
+  > non-assoc (
+      Expression "\<" Expression
+    | Expression "\>" Expression
+    | Expression "\<=" Expression
+    | Expression "\>=" Expression
+    | Expression "\<\>" Expression
+    | Expression "=" Expression
+    )
+  > left Expression "and" Expression
+  > left Expression "or" Expression
+  > right Expression "-\>" Expression
+  > right Expression ":" Expression
   ;
 
-syntax CondExpression
-  = "cond" Identifier "do" NL* (Condition ARROW Statements)+ NL* "end" ;
-
-syntax ForExpression
-  = "for" Identifier "from" Range "do" NL* Statements NL* "end" ;
-
-syntax Range = Expression "to" Expression NL*;     
-
-// --- Assignment y listas ---
-syntax VariableList  = Identifier (COMMA Identifier)* ;
-syntax IdentifierList = Identifier (COMMA Identifier)* ;
-
-// --- DataDefinition  ---
-syntax DataDefinition
-  = "struct"   LP FieldList RP
-  | "sequence" LP Elements RP
-  | "tuple"    LP Expression COMMA Expression RP   
+// ---------- Invocation ----------
+syntax Invocation
+  = Identifier "$" "(" Variables ")"
+  | Identifier "." Identifier "(" Variables ")"
   ;
 
-syntax FieldList = Identifier (COMMA Identifier)* ;
-syntax Elements  = Expression (COMMA Expression)* ; 
-
-// --- Literales / valores primarios ---
-syntax Value
-  = Number
-  | Boolean
-  | Char
-  | String
+// ---------- Principal ----------
+syntax Principal
+  = "true"
+  | "false"
+  | CharLiteral
+  | FloatLiteral
+  | IntLiteral
+  | Identifier
   ;
-
-// --- Llamadas ---
-syntax FunctionCall = Identifier DOLLAR LP Arguments RP ;
-syntax Arguments    = Expression (COMMA Expression)* ; 
-
-// --- Condiciones ---
-syntax Condition = Expression Operator Expression ;     
-syntax Operator  = LT | GT | LE | GE | NE | EQ | "and" | "or";
